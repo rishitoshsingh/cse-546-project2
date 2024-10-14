@@ -10,4 +10,4 @@ ExecStart=/home/ubuntu/cse-546-project2/app-tier/start-app-tier.sh
 Restart=always
 
 [Install]
-WantedBy=multi-user.targetx
+WantedBy=multi-user.target
