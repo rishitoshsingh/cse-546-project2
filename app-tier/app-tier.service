@@ -5,8 +5,8 @@ After=network.target
 [Service]
 User=ec2-user
 Group=ec2-user
-WorkingDirectory=/home/ubuntu/cse-546-project2/app-tier
-ExecStart=/home/ubuntu/cse-546-project2/app-tier/start-app-tier.sh
+WorkingDirectory=/home/ec2-user/cse-546-project2/app-tier
+ExecStart=/home/ec2-user/cse-546-project2/app-tier/start-app-tier.sh
 Restart=always
 
 [Install]
