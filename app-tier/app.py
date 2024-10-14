@@ -1,6 +1,6 @@
 import boto3
 import time
-from model import face_recognition
+import face_recognition
 import json
 
 s3_client = boto3.client('s3')
@@ -47,7 +47,7 @@ def send_to_queue(user_request, result):
 def process_message(message):
     user_request = json.loads(message)
     save_file_path = download_from_s3(user_request)
-    result = face_recognition.face_match(save_file_path, 'app-tier/data.pt')
+    result = face_recognition.face_match(save_file_path, 'data.pt')
     result = result[0]
     result_to_s3(user_request, result)
     send_to_queue(user_request, result)
