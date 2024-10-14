@@ -1,0 +1,13 @@
+[Unit]
+Description=Instance for a app-tier (Project 2 Part 2)
+After=network.target
+
+[Service]
+User=ec2-user
+Group=www-data
+WorkingDirectory=/home/ubuntu/cse-546-project2/app-tier
+ExecStart=/home/ubuntu/cse-546-project2/app-tier/start-app-tier.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
