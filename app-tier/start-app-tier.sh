@@ -1,3 +1,3 @@
 #!/bin/bash
-source /home/ubuntu/miniconda3/etc/profile.d/conda.sh
+source /home/ec2-user/miniconda3/etc/profile.d/conda.sh
 python app.py
