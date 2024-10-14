@@ -1,9 +1,8 @@
-import uuid
-from flask import Flask, request
 import boto3
-from werkzeug.utils import secure_filename
+import time
+from model import face_recognition
+import json
 
-app = Flask(__name__)
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
 
@@ -18,37 +17,61 @@ RES_SQS = "https://sqs.us-east-1.amazonaws.com/481665097158/1222358839-resp-queu
 def send_to_queue(user_request):
     response = sqs_client.send_message(
         QueueUrl=REQ_SQS,
-        MessageBody=str(user_request)
+        MessageBody=json.dumps(user_request)
     )
     return response
 
-def read_from_queue(request_id):
-    pass
+def download_from_s3(user_request):
+    object_name = user_request["request_id"] + "-" + user_request['filename']
+    save_file_path = "/tmp/" + object_name
+    s3_client.download_file(REQ_S3, object_name, save_file_path)
+    return save_file_path
 
-def upload_to_s3(request_id, file):
-    filename = secure_filename(file.filename)
-    filename = request_id + "-" + filename
-    print(filename)
-    s3_client.upload_fileobj(file, REQ_S3, filename)
-    return filename
+def result_to_s3(user_request, result):
+    object_name = user_request["filename"].split(".")[0]
+    s3_client.put_object(Bucket=RES_S3, Key=object_name, Body=json.dumps(result))
 
-@app.route('/', methods=['POST'])
-def root_post():
-    print("Hello")
-    if 'inputFile' not in request.files:
-        return "No file part in the request", 400
 
-    input_file = request.files['inputFile']
-    request_id = str(uuid.uuid4())
-    filename = upload_to_s3(request_id, input_file)
-    user_request = {
-        "request_id": request_id,
-        "filename": filename
+def send_to_queue(user_request, result):
+    response = {
+        "request_id": user_request["request_id"],
+        "filename": user_request["filename"],
+        "result": result
     }
-    print(user_request)
-    send_to_queue(user_request)
-    # return read_from_queue(request_id)
-    return "Success"
+    response = sqs_client.send_message(
+        QueueUrl=RES_SQS,
+        MessageBody=json.dumps(response)
+    )
+    return response
 
-if __name__ == '__main__':
-    app.run(debug=True)
+def process_message(message):
+    user_request = json.loads(message)
+    save_file_path = download_from_s3(user_request)
+    result = face_recognition.face_match(save_file_path, 'model/data.pt')
+    result_to_s3(user_request, result)
+    send_to_queue(user_request, result)
+
+def main():
+    while True:
+        response = sqs_client.receive_message(
+            QueueUrl=REQ_SQS,
+            MaxNumberOfMessages=1,
+            WaitTimeSeconds=20
+        )
+
+        messages = response.get('Messages', [])
+        if messages:
+            for message in messages:
+                process_message(message['Body'])
+                
+                # Delete the message from the queue after processing
+                sqs_client.delete_message(
+                    QueueUrl=REQ_SQS,
+                    ReceiptHandle=message['ReceiptHandle']
+                )
+        else:
+            print("No messages to process. Waiting...")
+        time.sleep(5)
+
+if __name__ == "__main__":
+    main()
