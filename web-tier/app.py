@@ -3,6 +3,7 @@ from flask import Flask, request
 import boto3
 from werkzeug.utils import secure_filename
 import json
+import time
 
 app = Flask(__name__)
 s3_client = boto3.client('s3')
@@ -24,7 +25,25 @@ def send_to_queue(user_request):
     return response
 
 def read_from_queue(request_id):
-    pass
+    while True:
+        response = sqs_client.receive_message(
+            QueueUrl=RES_SQS,
+            MaxNumberOfMessages=5,
+            WaitTimeSeconds=20
+        )
+        messages = response.get('Messages', [])
+        if messages:
+            for message in messages:
+                res_message = json.loads(message['Body'])
+                if res_message['request_id'] == request_id:
+                    sqs_client.delete_message(
+                        QueueUrl=RES_SQS,
+                        ReceiptHandle=message['ReceiptHandle']
+                    )
+                    return res_message
+        else:
+            print("Waiting for response...")
+        time.sleep(5)
 
 def upload_to_s3(request_id, file):
     filename = secure_filename(file.filename)
@@ -34,7 +53,6 @@ def upload_to_s3(request_id, file):
 
 @app.route('/', methods=['POST'])
 def root_post():
-    print("Hello")
     if 'inputFile' not in request.files:
         return "No file part in the request", 400
 
@@ -45,10 +63,11 @@ def root_post():
         "request_id": request_id,
         "filename": input_file.filename
     }
-    print(user_request)
     send_to_queue(user_request)
+    response = read_from_queue(request_id)
+    print(response)
     # return read_from_queue(request_id)
-    return "Success"
+    return response["result"]
 
 if __name__ == '__main__':
     app.run(debug=True)

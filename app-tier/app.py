@@ -48,6 +48,7 @@ def process_message(message):
     user_request = json.loads(message)
     save_file_path = download_from_s3(user_request)
     result = face_recognition.face_match(save_file_path, 'model/data.pt')
+    result = result[0]
     result_to_s3(user_request, result)
     send_to_queue(user_request, result)
 
