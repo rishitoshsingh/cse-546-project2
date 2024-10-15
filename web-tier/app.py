@@ -79,7 +79,7 @@ def root_post():
     logging.info("request sent to queue: %s", user_request)
     response = read_from_queue(request_id)
     logging.info("sending response to user: %s", response)
-    return response["response"]+":"+response["result"]
+    return response["filename"]+":"+response["result"]
 
 if __name__ == '__main__':
     app.run()
