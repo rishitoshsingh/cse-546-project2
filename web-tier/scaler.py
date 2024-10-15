@@ -71,7 +71,7 @@ def terminate_ec2_instance(instance_id):
     try:
         ec2_client.terminate_instances(InstanceIds=[instance_id])
     except Exception as e:
-        logging.error(f"Error terminating instance {instance_id}: {e}")
+        logging.error("Error terminating instance %s: %s", instance_id, e)
 
 def get_available_ids(instance_names):
     instance_numbers = []
