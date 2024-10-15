@@ -81,4 +81,4 @@ def root_post():
     return response["result"]
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run()
