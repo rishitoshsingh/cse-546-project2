@@ -1,0 +1,14 @@
+[Unit]
+Description=Python app service for Project 2 Part 2
+After=web-tier.service
+Requires=web-tier.service
+
+[Service]
+User=ubuntu
+Group=www-data
+WorkingDirectory=/home/ubuntu/cse-546-project2/web-tier
+ExecStart=/usr/bin/python3 /home/ubuntu/cse-546-project2/web-tier/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
