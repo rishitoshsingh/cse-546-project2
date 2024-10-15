@@ -8,13 +8,15 @@ import time
 import logging
 import sys
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(stream=sys.stdout)
+    ]
+)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter(fmt="%(asctime)s %(name)s.%(levelname)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
-
-handler = logging.StreamHandler()
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 app = Flask(__name__)
 s3_client = boto3.client('s3')
@@ -77,8 +79,7 @@ def root_post():
     logging.info("request sent to queue: %s", user_request)
     response = read_from_queue(request_id)
     logging.info("sending response to user: %s", response)
-    # return read_from_queue(request_id)
-    return response["result"]
+    return response["response"]+":"+response["result"]
 
 if __name__ == '__main__':
     app.run(debug=True)
