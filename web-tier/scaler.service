@@ -1,5 +1,5 @@
 [Unit]
-Description=Python app service for Project 2 Part 2
+Description=Python script to scale ec2 instances for Project 2 Part 2
 After=web-tier.service
 Requires=web-tier.service
 
@@ -7,7 +7,7 @@ Requires=web-tier.service
 User=ubuntu
 Group=www-data
 WorkingDirectory=/home/ubuntu/cse-546-project2/web-tier
-ExecStart=/usr/bin/python3 /home/ubuntu/cse-546-project2/web-tier/app.py
+ExecStart=/home/ubuntu/cse-546-project2/web-tier/start-scaler.sh
 Restart=always
 
 [Install]
