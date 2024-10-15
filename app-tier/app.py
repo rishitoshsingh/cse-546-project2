@@ -3,6 +3,17 @@ import time
 import face_recognition
 import json
 
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(fmt="%(asctime)s %(name)s.%(levelname)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
+
+handler = logging.StreamHandler(stream=sys.stdout)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
 
@@ -38,6 +49,7 @@ def send_to_queue(user_request, result):
         "filename": user_request["filename"],
         "result": result
     }
+    logging.info("Sending response to queue: %s", response)
     response = sqs_client.send_message(
         QueueUrl=RES_SQS,
         MessageBody=json.dumps(response)
@@ -63,15 +75,15 @@ def main():
         messages = response.get('Messages', [])
         if messages:
             for message in messages:
+                logging.info("Message received: %s", message["Body"])
                 process_message(message['Body'])
-                
                 # Delete the message from the queue after processing
                 sqs_client.delete_message(
                     QueueUrl=REQ_SQS,
                     ReceiptHandle=message['ReceiptHandle']
                 )
         else:
-            print("No messages to process. Waiting...")
+            logging.info("No messages to process. Waiting...")
         time.sleep(5)
 
 if __name__ == "__main__":

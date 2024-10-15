@@ -8,8 +8,6 @@ Group=ec2-user
 WorkingDirectory=/home/ec2-user/cse-546-project2/app-tier
 ExecStart=/home/ec2-user/cse-546-project2/app-tier/start-app-tier.sh
 Restart=always
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

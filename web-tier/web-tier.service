@@ -8,8 +8,6 @@ Group=www-data
 WorkingDirectory=/home/ubuntu/cse-546-project2/web-tier
 ExecStart=/home/ubuntu/cse-546-project2/web-tier/start-web-tier.sh
 Restart=always
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target

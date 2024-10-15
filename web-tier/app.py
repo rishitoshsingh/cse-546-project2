@@ -5,6 +5,17 @@ from werkzeug.utils import secure_filename
 import json
 import time
 
+import logging
+import sys
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter(fmt="%(asctime)s %(name)s.%(levelname)s: %(message)s", datefmt="%Y.%m.%d %H:%M:%S")
+
+handler = logging.StreamHandler(stream=sys.stdout)
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
 app = Flask(__name__)
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
@@ -42,13 +53,12 @@ def read_from_queue(request_id):
                     )
                     return res_message
         else:
-            print("Waiting for response...")
+            logging.info("Waiting for response...")
         time.sleep(5)
 
 def upload_to_s3(request_id, file):
     filename = secure_filename(file.filename)
     filename = request_id + "-" + filename
-    print(filename)
     s3_client.upload_fileobj(file, REQ_S3, filename)
 
 @app.route('/', methods=['POST'])
@@ -64,8 +74,9 @@ def root_post():
         "filename": input_file.filename
     }
     send_to_queue(user_request)
+    logging.info("request sent to queue: %s", user_request)
     response = read_from_queue(request_id)
-    print(response)
+    logging.info("sending response to user: %s", response)
     # return read_from_queue(request_id)
     return response["result"]
 
