@@ -45,9 +45,9 @@ def get_app_tier_instances():
 def get_queue_message_count():
     response = sqs_client.get_queue_attributes(
         QueueUrl=sqs_queue_url,
-        AttributeNames=['ApproximateNumberOfMessagesVisible']
+        AttributeNames=['ApproximateNumberOfMessages']
     )
-    return int(response['Attributes']['ApproximateNumberOfMessagesVisible'])
+    return int(response['Attributes']['ApproximateNumberOfMessages'])
 
 
 def create_ec2_instance(instance_number):
@@ -85,22 +85,24 @@ def get_available_ids(instance_names):
 def scale_ec2_instances(instances, desired_instances):
     running_instances = len(instances["running-instances"])
     allocated_instances = len(instances["all-instances"])
-    if allocated_instances == MAX_INSTANCES:
+    if running_instances == MAX_INSTANCES:
         logging.info("Max instances reached. Cannot scale up.")
     elif desired_instances > running_instances:
-        instances_to_add = desired_instances-running_instances
+        instances_to_add = int(desired_instances-running_instances)
+        logging.info(f"Need to add {instances_to_add} instances")
         for i in get_available_ids(instances["running-instances"])[:instances_to_add]:
             logging.info("Creating new instance #%d", i)
             create_ec2_instance(i)
-        time.sleep(60)
+        time.sleep(20)
     elif desired_instances < running_instances:
-        instances_to_remove = running_instances-desired_instances
+        instances_to_remove = int(running_instances-desired_instances)
+        logging.info(f"Need to terminate {instances_to_remove} instances")
         for i in instances["running-instances"][:instances_to_remove]:
             logging.info("Terminating instance %s", i)
             terminate_ec2_instance(i)
-        time.sleep(60)
+        time.sleep(20)
     else:
-        time.sleep(30)
+        time.sleep(10)
 
 def get_desired_instances(message_count):
     return min(message_count//MESSAGE_PER_INSTANCE, MAX_INSTANCES)
@@ -108,7 +110,7 @@ def get_desired_instances(message_count):
 def main():
     while True:
         message_count = get_queue_message_count()
-        print(f"Current message count: {message_count}")
+        logging.info(f"Current message count: {message_count}")
         desired_instances = get_desired_instances(message_count)
         instances = get_app_tier_instances()
         scale_ec2_instances(instances, desired_instances)
