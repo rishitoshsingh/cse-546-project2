@@ -60,9 +60,10 @@ def read_from_queue(request_id):
 
 def cleanup(request_id, file):
     filename = secure_filename(file.filename)
+    object_name = file.filename.split(".")[0]
     filename = request_id + "-" + filename
     s3_client.delete_object(Bucket=REQ_S3, Key=filename)
-    object_name = filename.split(".")[0]
+    logging.info(object_name)
     s3_client.delete_object(Bucket=RES_S3, Key=object_name)
 
 def upload_to_s3(request_id, file):
