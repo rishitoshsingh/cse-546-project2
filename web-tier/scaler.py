@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 sqs_queue_url = 'https://sqs.us-east-1.amazonaws.com/481665097158/1222358839-req-queue'
 MAX_INSTANCES = 20
 MIN_INSTANCES = 0
-MESSAGE_PER_INSTANCE = 0.5 # seconds required to process a message
-COOLDOWN = timedelta(minutes=5)
+# MESSAGE_PER_INSTANCE = 0.5 # seconds required to process a message
+MESSAGE_PER_INSTANCE = 1 # seconds required to process a message
+COOLDOWN = timedelta(minutes=1)
 INSTANCE_CREATION_TIME = None
 MAIN_TIME_LOOP = 5 #seconds
 
