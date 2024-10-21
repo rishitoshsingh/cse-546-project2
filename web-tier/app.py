@@ -4,8 +4,10 @@ import boto3
 from werkzeug.utils import secure_filename
 import json
 import time
+import asyncio
 
 from asgiref.wsgi import WsgiToAsgi
+from asgiref.sync import sync_to_async
 
 import logging
 import sys
@@ -43,7 +45,7 @@ def read_from_queue(request_id):
     while True:
         response = sqs_client.receive_message(
             QueueUrl=RES_SQS,
-            MaxNumberOfMessages=5,
+            MaxNumberOfMessages=1,
             WaitTimeSeconds=20
         )
         messages = response.get('Messages', [])
@@ -56,9 +58,13 @@ def read_from_queue(request_id):
                         ReceiptHandle=message['ReceiptHandle']
                     )
                     return res_message
-        else:
-            logging.info("Waiting for response...")
-        time.sleep(5)
+        # else:
+        #     logging.info("Waiting for response...")
+        # time.sleep(5)
+
+async def async_read_from_queue(request_id):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, read_from_queue, request_id)
 
 def upload_to_s3(request_id, file):
     filename = secure_filename(file.filename)
@@ -66,7 +72,7 @@ def upload_to_s3(request_id, file):
     s3_client.upload_fileobj(file, REQ_S3, filename)
 
 @app.route('/', methods=['POST'])
-def root_post():
+async def root_post():
     if 'inputFile' not in request.files:
         return "No file part in the request", 400
 
@@ -79,7 +85,7 @@ def root_post():
     }
     send_to_queue(user_request)
     logging.info("request sent to queue: %s", user_request)
-    response = read_from_queue(request_id)
+    response = await async_read_from_queue(request_id)
     logging.info("sending response to user: %s", response)
     return response["filename"]+":"+response["result"]
 
