@@ -60,6 +60,13 @@ def read_from_queue(request_id):
             logging.info("Waiting for response...")
         time.sleep(5)
 
+def cleanup(request_id, file):
+    filename = secure_filename(file.filename)
+    filename = request_id + "-" + filename
+    s3_client.delete_object(Bucket=REQ_S3, Key=filename)
+    object_name = filename.split(".")[0]
+    s3_client.delete_object(Bucket=RES_S3, Key=object_name)
+
 def upload_to_s3(request_id, file):
     filename = secure_filename(file.filename)
     filename = request_id + "-" + filename
@@ -81,6 +88,7 @@ def root_post():
     logging.info("request sent to queue: %s", user_request)
     response = read_from_queue(request_id)
     logging.info("sending response to user: %s", response)
+    cleanup(request_id, input_file)
     return response["filename"]+":"+response["result"]
 
 asgi_app = WsgiToAsgi(app)
