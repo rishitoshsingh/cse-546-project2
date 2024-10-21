@@ -102,17 +102,21 @@ def scale_ec2_instances(instances, desired_instances):
             terminate_ec2_instance(i)
         time.sleep(20)
     else:
-        time.sleep(10)
+        time.sleep(2)
 
 def get_desired_instances(message_count):
     return min(message_count//MESSAGE_PER_INSTANCE, MAX_INSTANCES)
 
 def main():
+    logging.info("\n" + "="*60 + "\n" + "      scaler is starting      " + "\n" + "="*60)
     while True:
         message_count = get_queue_message_count()
         logging.info(f"Current message count: {message_count}")
         desired_instances = get_desired_instances(message_count)
+        logging.info(f"Desired Instances: {desired_instances}")
+        # desired_instances=0
         instances = get_app_tier_instances()
+        logging.info(f"Instances: {instances}")
         scale_ec2_instances(instances, desired_instances)
 
 if __name__ == '__main__':

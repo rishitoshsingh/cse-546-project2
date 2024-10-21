@@ -5,6 +5,8 @@ from werkzeug.utils import secure_filename
 import json
 import time
 
+from asgiref.wsgi import WsgiToAsgi
+
 import logging
 import sys
 
@@ -81,5 +83,8 @@ def root_post():
     logging.info("sending response to user: %s", response)
     return response["filename"]+":"+response["result"]
 
+asgi_app = WsgiToAsgi(app)
 if __name__ == '__main__':
-    app.run()
+    logging.info("\n" + "="*60 + "\n" + "      web-tier is starting      " + "\n" + "="*60)
+    uvicorn.run(asgi_app, host="0.0.0.0", port=8000)
+    # app.run()
