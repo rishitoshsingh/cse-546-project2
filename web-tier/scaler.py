@@ -3,6 +3,7 @@ import time
 import logging
 import sys
 import re
+from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(
@@ -18,6 +19,9 @@ sqs_queue_url = 'https://sqs.us-east-1.amazonaws.com/481665097158/1222358839-req
 MAX_INSTANCES = 20
 MIN_INSTANCES = 0
 MESSAGE_PER_INSTANCE = 0.5 # seconds required to process a message
+COOLDOWN = timedelta(minutes=5)
+INSTANCE_CREATION_TIME = None
+MAIN_TIME_LOOP = 5 #seconds
 
 sqs_client = boto3.client('sqs')
 ec2_client = boto3.client('ec2')
@@ -51,6 +55,8 @@ def get_queue_message_count():
 
 
 def create_ec2_instance(instance_number):
+    INSTANCE_CREATION_TIME = datetime.now()
+    logging.info(f"Instance created at: {instance_creation_time}")
     instance = ec2.create_instances(
         ImageId='ami-0b72c0ab73a677cc6',
         MinCount=1,
@@ -93,16 +99,15 @@ def scale_ec2_instances(instances, desired_instances):
         for i in get_available_ids(instances["running-instances"])[:instances_to_add]:
             logging.info("Creating new instance #%d", i)
             create_ec2_instance(i)
-        time.sleep(20)
     elif desired_instances < running_instances:
+        if datetime.now() - INSTANCE_CREATION_TIME < COOLDOWN:
+            logging.info("Cooldown period active. Cannot scale down.")
+            return
         instances_to_remove = int(running_instances-desired_instances)
         logging.info(f"Need to terminate {instances_to_remove} instances")
         for i in instances["running-instances"][:instances_to_remove]:
             logging.info("Terminating instance %s", i)
             terminate_ec2_instance(i)
-        time.sleep(20)
-    else:
-        time.sleep(2)
 
 def get_desired_instances(message_count):
     return min(message_count//MESSAGE_PER_INSTANCE, MAX_INSTANCES)
@@ -118,6 +123,7 @@ def main():
         instances = get_app_tier_instances()
         logging.info(f"Instances: {instances}")
         scale_ec2_instances(instances, desired_instances)
+        time.sleep(MAIN_TIME_LOOP)
 
 if __name__ == '__main__':
     main()
