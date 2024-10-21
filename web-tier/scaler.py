@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 sqs_queue_url = 'https://sqs.us-east-1.amazonaws.com/481665097158/1222358839-req-queue'
 MAX_INSTANCES = 20
 MIN_INSTANCES = 0
-MESSAGE_PER_INSTANCE = 0.5 # seconds required to process a message
-COOLDOWN = timedelta(minutes=5)
+# MESSAGE_PER_INSTANCE = 0.5 # seconds required to process a message
+MESSAGE_PER_INSTANCE = 1 # seconds required to process a message
+COOLDOWN = timedelta(minutes=1)
 INSTANCE_CREATION_TIME = None
 MAIN_TIME_LOOP = 5 #seconds
 
@@ -56,7 +57,6 @@ def get_queue_message_count():
 
 def create_ec2_instance(instance_number):
     INSTANCE_CREATION_TIME = datetime.now()
-    logging.info(f"Instance created at: {instance_creation_time}")
     instance = ec2.create_instances(
         ImageId='ami-0b72c0ab73a677cc6',
         MinCount=1,
@@ -100,7 +100,7 @@ def scale_ec2_instances(instances, desired_instances):
             logging.info("Creating new instance #%d", i)
             create_ec2_instance(i)
     elif desired_instances < running_instances:
-        if datetime.now() - INSTANCE_CREATION_TIME < COOLDOWN:
+        if INSTANCE_CREATION_TIME and datetime.now() - INSTANCE_CREATION_TIME < COOLDOWN:
             logging.info("Cooldown period active. Cannot scale down.")
             return
         instances_to_remove = int(running_instances-desired_instances)

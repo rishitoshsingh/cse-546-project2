@@ -4,6 +4,13 @@ import boto3
 from werkzeug.utils import secure_filename
 import json
 import time
+import asyncio
+
+from asgiref.wsgi import WsgiToAsgi
+from asgiref.sync import 
+
+import aiohttp
+import asyncio
 
 import logging
 import sys
@@ -58,21 +65,17 @@ def read_from_queue(request_id):
         #     logging.info("Waiting for response...")
         # time.sleep(5)
 
-def cleanup(request_id, file):
-    filename = secure_filename(file.filename)
-    filename = request_id + "-" + filename
-    s3_client.delete_object(Bucket=REQ_S3, Key=filename)
-    object_name = filename.split(".")[0]
-    s3_client.delete_object(Bucket=RES_S3, Key=object_name)
+async def async_read_from_queue(request_id):
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, read_from_queue, request_id)
 
 def upload_to_s3(request_id, file):
     filename = secure_filename(file.filename)
     filename = request_id + "-" + filename
     s3_client.upload_fileobj(file, REQ_S3, filename)
 
-
 @app.route('/', methods=['POST'])
-def root_post():
+async def root_post():
     if 'inputFile' not in request.files:
         return "No file part in the request", 400
 
@@ -85,13 +88,12 @@ def root_post():
     }
     send_to_queue(user_request)
     logging.info("request sent to queue: %s", user_request)
-    response = read_from_queue(request_id)
+    response = await async_read_from_queue(request_id)
     logging.info("sending response to user: %s", response)
-    cleanup(request_id, input_file)
     return response["filename"]+":"+response["result"]
 
-# asgi_app = WsgiToAsgi(app)
+asgi_app = WsgiToAsgi(app)
 if __name__ == '__main__':
     logging.info("\n" + "="*60 + "\n" + "      web-tier is starting      " + "\n" + "="*60)
-    # uvicorn.run(asgi_app, host="0.0.0.0", port=8000)
-    app.run(threaded=True)
+    uvicorn.run(asgi_app, host="0.0.0.0", port=8000)
+    # app.run()
