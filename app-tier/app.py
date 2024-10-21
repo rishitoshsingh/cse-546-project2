@@ -1,7 +1,9 @@
+import uuid
+from flask import Flask, request
 import boto3
-import time
-import face_recognition
+from werkzeug.utils import secure_filename
 import json
+import time
 
 import logging
 import sys
@@ -16,6 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+app = Flask(__name__)
 s3_client = boto3.client('s3')
 sqs_client = boto3.client('sqs')
 
@@ -34,59 +37,62 @@ def send_to_queue(user_request):
     )
     return response
 
-def download_from_s3(user_request):
-    object_name = user_request["request_id"] + "-" + user_request['filename']
-    save_file_path = "/tmp/" + object_name
-    s3_client.download_file(REQ_S3, object_name, save_file_path)
-    return save_file_path
-
-def result_to_s3(user_request, result):
-    object_name = user_request["filename"].split(".")[0]
-    s3_client.put_object(Bucket=RES_S3, Key=object_name, Body=json.dumps(result))
-
-
-def send_to_queue(user_request, result):
-    response = {
-        "request_id": user_request["request_id"],
-        "filename": user_request["filename"],
-        "result": result
-    }
-    logging.info("Sending response to queue: %s", response)
-    response = sqs_client.send_message(
-        QueueUrl=RES_SQS,
-        MessageBody=json.dumps(response)
-    )
-    return response
-
-def process_message(message):
-    user_request = json.loads(message)
-    save_file_path = download_from_s3(user_request)
-    result = face_recognition.face_match(save_file_path, 'data.pt')
-    result = result[0]
-    result_to_s3(user_request, result)
-    send_to_queue(user_request, result)
-
-def main():
+def read_from_queue(request_id):
     while True:
         response = sqs_client.receive_message(
-            QueueUrl=REQ_SQS,
+            QueueUrl=RES_SQS,
             MaxNumberOfMessages=1,
             WaitTimeSeconds=20
         )
-
         messages = response.get('Messages', [])
         if messages:
             for message in messages:
-                logging.info("Message received: %s", message["Body"])
-                process_message(message['Body'])
-                # Delete the message from the queue after processing
-                sqs_client.delete_message(
-                    QueueUrl=REQ_SQS,
-                    ReceiptHandle=message['ReceiptHandle']
-                )
-        else:
-            logging.info("No messages to process. Waiting...")
-        time.sleep(5)
+                res_message = json.loads(message['Body'])
+                if res_message['request_id'] == request_id:
+                    sqs_client.delete_message(
+                        QueueUrl=RES_SQS,
+                        ReceiptHandle=message['ReceiptHandle']
+                    )
+                    return res_message
+        # else:
+        #     logging.info("Waiting for response...")
+        # time.sleep(5)
 
-if __name__ == "__main__":
-    main()
+def cleanup(request_id, file):
+    filename = secure_filename(file.filename)
+    object_name = file.filename.split(".")[0]
+    filename = request_id + "-" + filename
+    s3_client.delete_object(Bucket=REQ_S3, Key=filename)
+    logging.info(object_name)
+    s3_client.delete_object(Bucket=RES_S3, Key=object_name)
+
+def upload_to_s3(request_id, file):
+    filename = secure_filename(file.filename)
+    filename = request_id + "-" + filename
+    s3_client.upload_fileobj(file, REQ_S3, filename)
+
+
+@app.route('/', methods=['POST'])
+def root_post():
+    if 'inputFile' not in request.files:
+        return "No file part in the request", 400
+
+    input_file = request.files['inputFile']
+    request_id = str(uuid.uuid4())
+    upload_to_s3(request_id, input_file)
+    user_request = {
+        "request_id": request_id,
+        "filename": input_file.filename
+    }
+    send_to_queue(user_request)
+    logging.info("request sent to queue: %s", user_request)
+    response = read_from_queue(request_id)
+    logging.info("sending response to user: %s", response)
+    cleanup(request_id, input_file)
+    return response["filename"]+":"+response["result"]
+
+# asgi_app = WsgiToAsgi(app)
+if __name__ == '__main__':
+    logging.info("\n" + "="*60 + "\n" + "      web-tier is starting      " + "\n" + "="*60)
+    # uvicorn.run(asgi_app, host="0.0.0.0", port=8000)
+    app.run(threaded=True)
